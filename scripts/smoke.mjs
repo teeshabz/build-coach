@@ -4,9 +4,6 @@ import Anthropic from "@anthropic-ai/sdk";
 try { process.loadEnvFile(".env"); } catch {}
 
 const started = Date.now();
-const res = await fetch("http://localhost:9999", {}).catch(() => null); // noop, keeps lint quiet
-
-const { default: server } = { default: null };
 const client = new Anthropic();
 const r = await client.messages.create({
   model: process.env.MODEL || "claude-opus-5",
