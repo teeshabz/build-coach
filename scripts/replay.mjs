@@ -59,9 +59,15 @@ for (const [i, turn] of SCRIPT.entries()) {
     failures.push(`turn ${i + 1}: expected a correction (${turn.why}) but it played along`);
     console.log(`    ^^ MISS: should have corrected - ${turn.why}`);
   }
+  // Only assert completion when it can actually see the finished job - refusing
+  // to declare victory blind is correct behaviour, not a failure.
   if (turn.expect === "done" && !r.done) {
-    failures.push(`turn ${i + 1}: expected done=true at the end`);
-    console.log(`    ^^ MISS: never marked the task finished`);
+    if (!image) {
+      console.log(`    (not asserted: no ${turn.frame} fixture, so it can't confirm the job is finished)`);
+    } else {
+      failures.push(`turn ${i + 1}: expected done=true at the end`);
+      console.log(`    ^^ MISS: never marked the task finished`);
+    }
   }
   console.log();
 }

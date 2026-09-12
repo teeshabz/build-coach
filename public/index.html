@@ -205,22 +205,33 @@ function pickVoice() {
   return best;
 }
 if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => { chosenVoice = null; };
-function say(text) {
-  return new Promise((resolve) => {
-    if (!window.speechSynthesis) return resolve();
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.05; u.pitch = 1; u.lang = "en-US";
-    if (!chosenVoice) chosenVoice = pickVoice();
-    if (chosenVoice) u.voice = chosenVoice;
-    speaking = true;
-    setStatus("speaking", "speaking");
-    stopListening();
-    const finish = () => { speaking = false; resolve(); listenAgain(); };
-    u.onend = finish;
-    u.onerror = finish;
-    speechSynthesis.speak(u);
-  });
+let queued = 0;
+
+function speakChunk(text) {
+  if (!window.speechSynthesis || !text || !text.trim()) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.05; u.pitch = 1; u.lang = "en-US";
+  if (!chosenVoice) chosenVoice = pickVoice();
+  if (chosenVoice) u.voice = chosenVoice;
+
+  queued++;
+  speaking = true;
+  setStatus("speaking", "speaking");
+  stopListening(); // never let it hear itself
+  const finish = () => {
+    if (--queued > 0) return;      // more sentences still to play
+    speaking = false;
+    listenAgain();
+  };
+  u.onend = finish;
+  u.onerror = finish;
+  speechSynthesis.speak(u); // queues behind anything already playing
+}
+
+function stopSpeaking() {
+  try { speechSynthesis.cancel(); } catch {}
+  queued = 0;
+  speaking = false;
 }
 
 /* ---------- voice in ---------- */
@@ -333,21 +344,49 @@ async function turn(utterance) {
       signal: ctrl.signal,
       body: JSON.stringify({ utterance, image, state, history, run }),
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+
+    const box = $("speech");
+    box.className = "";
+    box.textContent = "";
+    stopSpeaking(); // whatever it was saying belongs to the previous turn
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let data = null;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const msg = JSON.parse(line);
+        if (msg.t === "error") throw new Error(msg.error);
+        if (msg.t === "speech") {
+          // first words are out before the model has finished the rest
+          box.textContent = (box.textContent ? box.textContent + " " : "") + msg.text;
+          speakChunk(msg.text);
+        }
+        if (msg.t === "done") data = msg;
+      }
+    }
+    if (!data) throw new Error("stream ended without a result");
 
     state = data.state;
     renderState(state);
     history.push({ role: "user", text: utterance }, { role: "agent", text: data.speech });
 
-    const box = $("speech");
     box.className = data.correction ? "correction" : data.done ? "done" : "";
     box.textContent = data.speech;
-    $("hint").textContent = data.ms ? data.ms + "ms" : "";
+    if (!queued && !speaking) speakChunk(data.speech); // streaming off, or nothing sent
+    $("hint").textContent = data.firstWordAt ? data.firstWordAt + "ms to speech, " + data.ms + "ms total" : data.ms + "ms";
 
     busy = false;
     inflight = null;
-    await say(data.speech);
   } catch (err) {
     if (err.name === "AbortError") return; // superseded, a newer turn owns the screen
     $("speech").textContent = "";
@@ -382,7 +421,7 @@ $("go").addEventListener("click", async () => {
   // a round trip on it. Their answer is the first real turn.
   $("speech").textContent = OPENING;
   history.push({ role: "agent", text: OPENING });
-  await say(OPENING);
+  speakChunk(OPENING);
 });
 
 $("typeToggle").addEventListener("click", () => {
@@ -407,7 +446,7 @@ $("mic").addEventListener("click", () => {
 });
 
 $("reset").addEventListener("click", () => {
-  try { speechSynthesis.cancel(); } catch {}
+  stopSpeaking();
   stopListening();
   clearTimeout(pendingTimer);
   pending = "";

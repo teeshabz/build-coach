@@ -80,6 +80,8 @@ const SCHEMA = {
   type: "object",
   properties: {
     observation: { type: "string", description: "What you actually see right now, one short phrase. For your own reasoning, not spoken." },
+    speech: { type: "string", description: "Exactly what to say out loud. 1-2 short sentences." },
+    correction: { type: "boolean", description: "True when you are interrupting to stop a mistake." },
     state: {
       type: "object",
       properties: {
@@ -95,11 +97,9 @@ const SCHEMA = {
       required: ["mode", "goal", "surface", "step", "wall_material", "stud_finder_mode", "hardware", "facts"],
       additionalProperties: false,
     },
-    correction: { type: "boolean", description: "True when you are interrupting to stop a mistake." },
     done: { type: "boolean", description: "True only when the whole task is finished." },
-    speech: { type: "string", description: "Exactly what to say out loud. 1-2 short sentences." },
   },
-  required: ["observation", "state", "correction", "done", "speech"],
+  required: ["observation", "speech", "correction", "state", "done"],
   additionalProperties: false,
 };
 
@@ -156,7 +156,35 @@ export async function references() {
   return refCache;
 }
 
-export async function coach({ utterance, image, state, history }) {
+/* Pull the speech field out of a half-written JSON response, so we can start
+   talking before the model has finished writing the state object. */
+export function partialSpeech(buf) {
+  const m = buf.match(/"speech"\s*:\s*"/);
+  if (!m) return null;
+  const ESC = { n: "\n", t: "\t", r: "\r", b: "", f: "", '"': '"', "\\": "\\", "/": "/" };
+  let out = "";
+  for (let i = m.index + m[0].length; i < buf.length; i++) {
+    const c = buf[i];
+    if (c === "\\") {
+      const next = buf[i + 1];
+      if (next === undefined) break;          // escape split across chunks
+      if (next === "u") {
+        if (i + 5 >= buf.length) break;
+        out += String.fromCharCode(parseInt(buf.slice(i + 2, i + 6), 16));
+        i += 5;
+        continue;
+      }
+      out += ESC[next] ?? next;
+      i++;
+      continue;
+    }
+    if (c === '"') return { text: out, complete: true };
+    out += c;
+  }
+  return { text: out, complete: false };
+}
+
+export async function coach({ utterance, image, state, history }, onSpeech) {
   const said = (utterance || "").trim() || "Next.";
   const content = [];
 
@@ -190,7 +218,7 @@ export async function coach({ utterance, image, state, history }) {
       ]
     : [{ role: "user", content }];
 
-  const response = await client.messages.create({
+  const request = {
     model: MODEL,
     max_tokens: 1200,
     system: SYSTEM,
@@ -199,7 +227,37 @@ export async function coach({ utterance, image, state, history }) {
       effort: EFFORT,
       format: { type: "json_schema", schema: SCHEMA },
     },
-  });
+  };
+  // Thinking happens before a single word is written, so it lands entirely in
+  // the silence the user is sitting through. THINKING=off trades reasoning
+  // depth for time-to-first-word.
+  if (process.env.THINKING === "off") request.thinking = { type: "disabled" };
+
+  let response;
+  if (onSpeech) {
+    // Stream, and hand each finished sentence out as soon as it exists.
+    const stream = client.messages.stream(request);
+    let buf = "";
+    let sent = 0;
+    stream.on("text", (delta) => {
+      buf += delta;
+      const p = partialSpeech(buf);
+      if (!p) return;
+      const ahead = p.text.slice(sent);
+      const ends = [...ahead.matchAll(/[.!?](?=\s|$)/g)];
+      if (ends.length) {
+        const upto = sent + ends[ends.length - 1].index + 1;
+        onSpeech(p.text.slice(sent, upto).trim());
+        sent = upto;
+      } else if (p.complete && p.text.length > sent) {
+        onSpeech(p.text.slice(sent).trim());
+        sent = p.text.length;
+      }
+    });
+    response = await stream.finalMessage();
+  } else {
+    response = await client.messages.create(request);
+  }
 
   const text = response.content.find((b) => b.type === "text")?.text ?? "{}";
   const data = JSON.parse(text);

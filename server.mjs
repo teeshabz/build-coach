@@ -20,6 +20,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
    happened, the frames so a turn it got wrong can become a replay fixture.
    Stays on this machine; RECORD=0 turns it off. */
 const RECORDING = process.env.RECORD !== "0";
+const STREAMING = process.env.STREAM !== "0"; // STREAM=0 falls back to one whole response
 const SESSIONS = path.join(import.meta.dirname, "sessions");
 const turnNo = new Map();
 
@@ -62,9 +63,26 @@ async function handler(req, res) {
     req.on("data", (c) => (body += c));
     req.on("end", async () => {
       const started = Date.now();
+      let firstWordAt = null;
       try {
         const payload = JSON.parse(body);
-        const result = await coach(payload);
+
+        // Newline-delimited JSON: sentences go out the moment the model writes
+        // them, the full result follows when it has finished thinking.
+        res.writeHead(200, {
+          "content-type": "application/x-ndjson",
+          "cache-control": "no-cache",
+        });
+        const send = (obj) => res.write(JSON.stringify(obj) + "\n");
+
+        const onSpeech = STREAMING
+          ? (text) => {
+              if (!firstWordAt) firstWordAt = Date.now() - started;
+              send({ t: "speech", text });
+            }
+          : null;
+
+        const result = await coach(payload, onSpeech);
         const ms = Date.now() - started;
         const s = result.state;
         console.log(
@@ -72,15 +90,21 @@ async function handler(req, res) {
           `  saw:   ${result.observation}\n` +
           `  says:  ${result.correction ? "** CORRECTION ** " : ""}${result.done ? "** DONE ** " : ""}${result.speech}\n` +
           `  state: ${s.step} | wall ${s.wall_material} | mode ${s.stud_finder_mode} | ${s.hardware}\n` +
-          `  facts: ${(s.facts || []).join(" / ") || "-"}`
+          `  facts: ${(s.facts || []).join(" / ") || "-"}` +
+          (firstWordAt ? `\n  first word out at ${firstWordAt}ms of ${ms}ms` : "")
         );
         await record(payload.run, payload, result, ms);
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ ...result, ms }));
+        send({ t: "done", ...result, ms, firstWordAt });
+        res.end();
       } catch (err) {
         console.error("coach failed:", err?.message || err);
-        res.writeHead(500, { "content-type": "application/json" });
-        res.end(JSON.stringify({ error: String(err?.message || err) }));
+        if (res.headersSent) {
+          res.write(JSON.stringify({ t: "error", error: String(err?.message || err) }) + "\n");
+          res.end();
+        } else {
+          res.writeHead(500, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: String(err?.message || err) }));
+        }
       }
     });
     return;

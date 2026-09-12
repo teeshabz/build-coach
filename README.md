@@ -64,14 +64,20 @@ Take the room away and there is no product left.
 ## How a turn works
 
 ```
-you speak  ─→  fragments buffered until you actually stop (1.4s)
+you speak  ─→  fragments buffered until you actually stop
+               (300ms for "next", 1.4s for a real sentence)
            ─→  one camera frame captured
            ─→  Claude Opus 5  ←── your reference photos (cached)
                               ←── the project state from last turn
                               ←── the last few exchanges
-           ─→  { speech, updated state, correction?, done? }
-           ─→  spoken aloud, state panel updates on screen
+           ─→  streamed back sentence by sentence
+           ─→  speaking starts on the first one, ~2.4s in,
+               while the model is still writing the state
 ```
+
+The response is streamed and the schema puts `speech` near the front, so the
+phone starts talking roughly a second before the model has finished the turn.
+Sentences are queued to the speech synthesiser in order as they arrive.
 
 Two phases, and the agent decides when to move between them:
 
@@ -181,7 +187,8 @@ To work on it without a phone, `INSECURE=1 npm start` serves plain HTTP —
 | Env | Default | |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | — | required |
-| `MODEL` | `claude-opus-5` | `claude-sonnet-5` is faster |
+| `MODEL` | `claude-opus-5` | `claude-sonnet-5` is ~0.5s faster to first word |
+| `STREAM` | on | `0` waits for the whole response instead |
 | `EFFORT` | `low` | keeps voice latency down |
 | `INSECURE` | unset | force plain HTTP for laptop testing |
 | `RECORD` | on | `0` disables session recording |
