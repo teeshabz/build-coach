@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
-import { coach, MODEL, EFFORT } from "./coach.mjs";
+import { coach, references, MODEL, EFFORT } from "./coach.mjs";
 
 try { process.loadEnvFile(".env"); } catch {}
 
@@ -73,11 +73,16 @@ const server = secure
 
 const lan = Object.values(networkInterfaces()).flat().find((i) => i?.family === "IPv4" && !i.internal)?.address;
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   const scheme = secure ? "https" : "http";
   console.log(`\n  Build Coach  (model: ${MODEL}, effort: ${EFFORT})`);
   console.log(`  this mac:  ${scheme}://localhost:${PORT}`);
   if (lan) console.log(`  your phone: ${scheme}://${lan}:${PORT}`);
   if (!secure) console.log(`\n  No cert found - running plain HTTP. iOS Safari will NOT grant camera access.\n  Run:  npm run cert\n`);
   else console.log(`\n  Self-signed cert: Safari will warn once. Show Details -> visit this website.\n`);
+
+  const { labels } = await references();
+  console.log(labels.length
+    ? `  reference photos: ${labels.join(", ")}`
+    : `  reference photos: none - drop labeled photos of your gear in reference/ (see reference/README.txt)`);
 });
