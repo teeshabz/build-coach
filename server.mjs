@@ -164,7 +164,7 @@ async function handler(req, res) {
 
 const KEY = path.join(import.meta.dirname, "certs", "key.pem");
 const CRT = path.join(import.meta.dirname, "certs", "cert.pem");
-const secure = existsSync(KEY) && existsSync(CRT);
+const secure = !process.env.INSECURE && existsSync(KEY) && existsSync(CRT);
 
 const server = secure
   ? createHttpsServer({ key: await readFile(KEY), cert: await readFile(CRT) }, handler)
