@@ -192,12 +192,19 @@ function buildRecognizer() {
   if (!SR) { $("hint").textContent = "Speech recognition unavailable here - use the buttons."; return null; }
   const r = new SR();
   r.lang = "en-US";
-  r.interimResults = false;
+  r.interimResults = true; // show partial words so you can see it hearing you
   r.maxAlternatives = 1;
   r.continuous = false; // iOS ignores continuous; we restart manually
   r.onresult = (e) => {
-    const said = e.results[e.results.length - 1][0].transcript.trim();
-    if (said) turn(said);
+    const res = e.results[e.results.length - 1];
+    const said = res[0].transcript.trim();
+    if (!res.isFinal) {
+      $("heard").textContent = said ? "… " + said : "";
+      return;
+    }
+    // one-word noise ("uh", a cough registering as "the") shouldn't fire a turn
+    if (said.length < 2 || /^(uh|um|ah|oh|hm+)$/i.test(said)) { $("heard").textContent = ""; return; }
+    turn(said);
   };
   r.onend = () => { if (handsFree && !busy && !speaking) safeStart(); };
   r.onerror = (e) => {
