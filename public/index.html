@@ -184,14 +184,35 @@ function grabFrame() {
 }
 
 /* ---------- voice out ---------- */
+let chosenVoice = null;
+
+/* The default system voice is the robotic one. Apple ships far better voices
+   but only downloads them on request - Settings > Accessibility > Spoken
+   Content > Voices. Prefer them in order of how human they sound. */
+function pickVoice() {
+  const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en"));
+  if (!voices.length) return null;
+  const rank = (v) => {
+    const n = v.name;
+    if (/premium|siri/i.test(n)) return 0;
+    if (/enhanced/i.test(n)) return 1;
+    if (/Ava|Allison|Samantha|Serena|Zoe|Nathan|Evan/i.test(n)) return 2;
+    if (/Google US English/i.test(n)) return 3;
+    return 4;
+  };
+  const best = voices.sort((a, b) => rank(a) - rank(b))[0];
+  console.log("voice:", best.name, "of", voices.length, "available");
+  return best;
+}
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => { chosenVoice = null; };
 function say(text) {
   return new Promise((resolve) => {
     if (!window.speechSynthesis) return resolve();
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05; u.pitch = 1; u.lang = "en-US";
-    const v = speechSynthesis.getVoices().find((v) => /Samantha|Google US English|Alex/.test(v.name));
-    if (v) u.voice = v;
+    if (!chosenVoice) chosenVoice = pickVoice();
+    if (chosenVoice) u.voice = chosenVoice;
     speaking = true;
     setStatus("speaking", "speaking");
     stopListening();
@@ -237,6 +258,10 @@ function buildRecognizer() {
    screw" arrives as two fragments and the second half is lost. Collect the
    fragments and only send once they have actually stopped talking. */
 const SILENCE_MS = 1400;
+const QUICK_MS = 300;
+// Short commands are complete the moment they land - waiting 1.4s to see if
+// "next" turns into a longer sentence just adds silence to every single turn.
+const COMPLETE = /^(ok(ay)?[ ,]*)?(next|done|go|yes|no|yep|nope|stop|wait|how'?s this|does this look good|what now|now what)[.?!]?$/i;
 let pending = "";
 let pendingTimer = null;
 
@@ -244,7 +269,7 @@ function queueSpeech(text) {
   pending = (pending ? pending + " " : "") + text;
   $("heard").textContent = "“" + pending + "”";
   clearTimeout(pendingTimer);
-  pendingTimer = setTimeout(flushSpeech, SILENCE_MS);
+  pendingTimer = setTimeout(flushSpeech, COMPLETE.test(pending.trim()) ? QUICK_MS : SILENCE_MS);
 }
 
 function flushSpeech() {
