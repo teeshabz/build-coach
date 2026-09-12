@@ -211,7 +211,7 @@ function buildRecognizer() {
   r.lang = "en-US";
   r.interimResults = true; // show partial words so you can see it hearing you
   r.maxAlternatives = 1;
-  r.continuous = false; // iOS ignores continuous; we restart manually
+  r.continuous = true; // Chrome keeps the session open; iOS ignores it and we restart on end
   r.onresult = (e) => {
     const res = e.results[e.results.length - 1];
     const said = res[0].transcript.trim();
@@ -220,10 +220,10 @@ function buildRecognizer() {
       return;
     }
     // one-word noise ("uh", a cough registering as "the") shouldn't fire a turn
-    if (said.length < 2 || /^(uh|um|ah|oh|hm+)$/i.test(said)) { $("heard").textContent = ""; return; }
-    turn(said);
+    if (said.length < 2 || /^(uh|um|ah|oh|hm+)$/i.test(said)) return;
+    queueSpeech(said);
   };
-  r.onend = () => { if (handsFree && !busy && !speaking) safeStart(); };
+  r.onend = () => { if (handsFree && !speaking) safeStart(); };
   r.onerror = (e) => {
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
       handsFree = false; setVoiceButton();
@@ -233,8 +233,29 @@ function buildRecognizer() {
   return r;
 }
 
+/* Chrome finalises a result on any short pause, so "should I drill in the
+   screw" arrives as two fragments and the second half is lost. Collect the
+   fragments and only send once they have actually stopped talking. */
+const SILENCE_MS = 1400;
+let pending = "";
+let pendingTimer = null;
+
+function queueSpeech(text) {
+  pending = (pending ? pending + " " : "") + text;
+  $("heard").textContent = "“" + pending + "”";
+  clearTimeout(pendingTimer);
+  pendingTimer = setTimeout(flushSpeech, SILENCE_MS);
+}
+
+function flushSpeech() {
+  clearTimeout(pendingTimer);
+  const said = pending.trim();
+  pending = "";
+  if (said.length >= 2) turn(said);
+}
+
 function safeStart() {
-  if (!recog || busy || speaking) return;
+  if (!recog || speaking) return; // thinking is fine - they may still be talking
   try { recog.start(); setStatus("listening", "listening"); }
   catch { /* already started */ }
 }
@@ -269,11 +290,14 @@ function renderState(s) {
   $("facts").innerHTML = (s.facts || []).slice(-4).map((f) => "· " + f).join("<br>");
 }
 
+let inflight = null;
+
 async function turn(utterance) {
-  if (busy) return;
+  if (inflight) inflight.abort(); // they carried on talking - that answer is stale
+  const ctrl = new AbortController();
+  inflight = ctrl;
   busy = true;
-  stopListening();
-  $("heard").textContent = utterance.startsWith("(") ? "" : "“" + utterance + "”";
+  $("heard").textContent = "“" + utterance + "”";
   setStatus("thinking", "thinking");
 
   const image = grabFrame();
@@ -281,6 +305,7 @@ async function turn(utterance) {
     const res = await fetch("/api/next", {
       method: "POST",
       headers: { "content-type": "application/json" },
+      signal: ctrl.signal,
       body: JSON.stringify({ utterance, image, state, history, run }),
     });
     const data = await res.json();
@@ -296,11 +321,14 @@ async function turn(utterance) {
     $("hint").textContent = data.ms ? data.ms + "ms" : "";
 
     busy = false;
+    inflight = null;
     await say(data.speech);
   } catch (err) {
+    if (err.name === "AbortError") return; // superseded, a newer turn owns the screen
     $("speech").textContent = "";
     $("hint").textContent = "Error: " + err.message;
     busy = false;
+    inflight = null;
     listenAgain();
   }
 }
@@ -339,8 +367,13 @@ $("typeToggle").addEventListener("click", () => {
   if (!box.hidden) box.focus();
 });
 
-$("next").addEventListener("click", () => turn("Next."));
-$("look").addEventListener("click", () => turn("Does this look good?"));
+function tapped(text) {
+  clearTimeout(pendingTimer);
+  pending = "";
+  turn(text);
+}
+$("next").addEventListener("click", () => tapped("Next."));
+$("look").addEventListener("click", () => tapped("Does this look good?"));
 $("mic").addEventListener("click", () => {
   if (!recog) return;
   handsFree = !handsFree;
@@ -351,6 +384,9 @@ $("mic").addEventListener("click", () => {
 $("reset").addEventListener("click", () => {
   try { speechSynthesis.cancel(); } catch {}
   stopListening();
+  clearTimeout(pendingTimer);
+  pending = "";
+  if (inflight) { inflight.abort(); inflight = null; }
   handsFree = false;
   busy = false;
   speaking = false;
