@@ -38,3 +38,14 @@ drywall anchor two steps later.
 - `EFFORT` — defaults to `low` for voice latency. `medium` reasons harder, responds slower.
 - Buttons (`Next`, `How's this?`) do the same thing as the voice phrases — a fallback
   for a loud room or if iOS speech recognition drops out.
+
+## Testing without a wall
+
+```sh
+node scripts/replay.mjs
+```
+
+Runs the ten-turn demo script through the real reasoning loop and checks the two
+planted mistakes get caught. Drop photos in `fixtures/` named `01-scene.jpg`,
+`03-metal-mode.jpg`, `07-reaching-anchor.jpg` (etc. — see the script) and those
+turns run against real frames instead of blind.
