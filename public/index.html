@@ -121,14 +121,14 @@
   <div class="controls">
     <button id="next">Next</button>
     <button id="look">How's this?</button>
-    <button id="mic">Voice off</button>
+    <button id="mic">🎤 Listen</button>
   </div>
   <div class="hint" id="hint"></div>
 </div>
 
 <div id="start">
   <h1>Build Coach</h1>
-  <p>Point the camera at your work. Tap <b>Next</b> when you are ready for the next step, or <b>How’s this?</b> to be checked. Turn on <b>Voice</b> when you want to say it instead.</p>
+  <p>Point the camera at your work. Tap <b>Next</b> when you are ready for the next step, or <b>How’s this?</b> to be checked. Tap <b>Listen</b> to talk to it instead, and <b>Pause</b> when you want to talk to someone else.</p>
   <textarea id="goal">My goal is to put up a hook in the wall but I'm not sure where to drill and how to do it. I'm using these hooks and I have this stud finder.</textarea>
   <button id="go">Start</button>
   <div id="err"></div>
@@ -144,6 +144,7 @@ let history = [];
 let busy = false;
 let handsFree = false; // buttons first; flip on with the Voice button
 let recog = null;
+let run = null; // one id per demo run, groups the recorded turns
 let speaking = false;
 
 /* ---------- camera ---------- */
@@ -254,7 +255,7 @@ async function turn(utterance) {
     const res = await fetch("/api/next", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ utterance, image, state, history }),
+      body: JSON.stringify({ utterance, image, state, history, run }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -292,6 +293,7 @@ $("go").addEventListener("click", async () => {
 
   recog = buildRecognizer();
   setVoiceButton();
+  run = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
   const goal = $("goal").value.trim();
   $("start").style.display = "none";
   turn(goal || "Next.");
@@ -314,6 +316,7 @@ $("reset").addEventListener("click", () => {
   speaking = false;
   state = null;
   history = [];
+  run = null; // next Start opens a fresh recording
   $("heard").textContent = "";
   $("speech").textContent = "";
   $("speech").className = "";
@@ -331,7 +334,9 @@ $("reset").addEventListener("click", () => {
 
 function setVoiceButton() {
   $("mic").classList.toggle("on", handsFree && !!recog);
-  $("mic").textContent = !recog ? "No voice" : handsFree ? "Voice on" : "Voice off";
+  // label says what tapping it DOES, so there's no reading required mid-demo
+  $("mic").textContent = !recog ? "No mic" : handsFree ? "❚❚ Pause" : "🎤 Listen";
+  $("hint").textContent = handsFree ? "" : recog ? "mic paused - talk freely" : "";
 }
 </script>
 </body>

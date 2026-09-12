@@ -49,3 +49,18 @@ Runs the ten-turn demo script through the real reasoning loop and checks the two
 planted mistakes get caught. Drop photos in `fixtures/` named `01-scene.jpg`,
 `03-metal-mode.jpg`, `07-reaching-anchor.jpg` (etc. — see the script) and those
 turns run against real frames instead of blind.
+
+## Recorded runs
+
+Every turn is written to `sessions/<run>/` — a `turns.jsonl` of what was said,
+seen, and decided, plus the frame that was sent. Local only; `RECORD=0` disables.
+
+```sh
+node scripts/review.mjs                      # list runs
+node scripts/review.mjs 2026-09-12-13-15-04  # replay one, turn by turn
+node scripts/review.mjs <run> 7 03-metal-mode   # promote a frame to a fixture
+```
+
+That last one is the point: when it gets a turn wrong on camera, promote that
+exact frame into `fixtures/` and it becomes a regression test for the next
+prompt change.

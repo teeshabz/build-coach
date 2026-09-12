@@ -1,6 +1,6 @@
 import { createServer as createHttpsServer } from "node:https";
 import { createServer as createHttpServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
@@ -14,6 +14,36 @@ const ROOT = path.join(import.meta.dirname, "public");
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("\n  ANTHROPIC_API_KEY is not set. Put it in .env as:\n  ANTHROPIC_API_KEY=sk-ant-...\n");
   process.exit(1);
+}
+
+/* Every turn is written to sessions/<run>/ - the jsonl for reading back what
+   happened, the frames so a turn it got wrong can become a replay fixture.
+   Stays on this machine; RECORD=0 turns it off. */
+const RECORDING = process.env.RECORD !== "0";
+const SESSIONS = path.join(import.meta.dirname, "sessions");
+const turnNo = new Map();
+
+async function record(run, payload, result, ms) {
+  if (!RECORDING || !run) return;
+  const dir = path.join(SESSIONS, run.replace(/[^0-9a-zA-Z_-]/g, ""));
+  const n = (turnNo.get(run) || 0) + 1;
+  turnNo.set(run, n);
+  try {
+    await mkdir(dir, { recursive: true });
+    const frame = payload.image ? `${String(n).padStart(2, "0")}-frame.jpg` : null;
+    if (frame) await writeFile(path.join(dir, frame), Buffer.from(payload.image, "base64"));
+    await appendFile(path.join(dir, "turns.jsonl"), JSON.stringify({
+      n, at: new Date().toISOString(), ms, frame,
+      said: payload.utterance,
+      observation: result.observation,
+      speech: result.speech,
+      correction: result.correction,
+      done: result.done,
+      state: result.state,
+    }) + "\n");
+  } catch (err) {
+    console.error("  (recording failed:", err.message + ")");
+  }
 }
 
 const TYPES = {
@@ -41,6 +71,7 @@ async function handler(req, res) {
           `  state: ${s.step} | wall ${s.wall_material} | mode ${s.stud_finder_mode} | ${s.hardware}\n` +
           `  facts: ${(s.facts || []).join(" / ") || "-"}`
         );
+        await record(payload.run, payload, result, ms);
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ...result, ms }));
       } catch (err) {
