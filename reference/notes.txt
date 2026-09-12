@@ -1,0 +1,16 @@
+The hook is the SAME in both cases. Only the fastening changes.
+- Into a wood stud: the version with the pointed wood screw moulded into it. Nothing else.
+- Into hollow drywall: the toggle bolt (metal wings on a long machine screw) OR the
+  ribbed white plastic expansion anchor. One or the other, never both.
+
+The two hooks look nearly identical on camera - same white curve. The only reliable
+tell is what is attached to it: a pointed screw means the wood one, a metal toggle bar
+or plastic sleeve means the drywall one. If neither is in frame, say so rather than guess.
+
+Stud finder (red, JAXWQ, green LCD):
+- Mode icon sits top-LEFT. An I-beam shape = METAL mode. A 3D box/cube = WOOD/STUD mode.
+- A second box icon shows scan depth and varies (1/2", 1"). Changing depth is NOT a mode
+  error and must not be corrected.
+- The screen is GREEN at all times, idle and scanning alike. Green never means "found it".
+- While sweeping it shows a bar graph and an arrow. The arrow means keep moving that way -
+  it has NOT found the centre yet. Do not call a stud off an arrow.
