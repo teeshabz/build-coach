@@ -33,7 +33,14 @@ async function handler(req, res) {
         const payload = JSON.parse(body);
         const result = await coach(payload);
         const ms = Date.now() - started;
-        console.log(`[${ms}ms] "${(payload.utterance || "").slice(0, 40)}" -> ${result.correction ? "CORRECTION " : ""}${result.speech}`);
+        const s = result.state;
+        console.log(
+          `\n[${ms}ms] ${payload.image ? "frame" : "BLIND"}  THEM: ${payload.utterance}\n` +
+          `  saw:   ${result.observation}\n` +
+          `  says:  ${result.correction ? "** CORRECTION ** " : ""}${result.done ? "** DONE ** " : ""}${result.speech}\n` +
+          `  state: ${s.step} | wall ${s.wall_material} | mode ${s.stud_finder_mode} | ${s.hardware}\n` +
+          `  facts: ${(s.facts || []).join(" / ") || "-"}`
+        );
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ...result, ms }));
       } catch (err) {
