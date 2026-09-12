@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Build Coach</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --fg: #f2f4f7;
+    --dim: #8b95a3;
+    --line: #1e242c;
+    --amber: #ffb020;
+    --green: #38d39f;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    overflow: hidden; overscroll-behavior: none;
+  }
+  #video {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; background: #000; filter: brightness(.62);
+  }
+  .layer { position: fixed; inset: 0; display: flex; flex-direction: column;
+           padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); }
+
+  /* ---- top row ---- */
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .status {
+    display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+    background: rgba(11,13,16,.72); border: 1px solid var(--line); border-radius: 999px;
+    font-size: 13px; letter-spacing: .02em; backdrop-filter: blur(8px);
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+  .dot.listening { background: var(--green); animation: pulse 1.4s infinite; }
+  .dot.thinking  { background: var(--amber); animation: pulse .7s infinite; }
+  .dot.speaking  { background: #6aa8ff; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+
+  #state {
+    background: rgba(11,13,16,.72); border: 1px solid var(--line); border-radius: 12px;
+    padding: 9px 11px; font-size: 11px; min-width: 168px; backdrop-filter: blur(8px);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  #state .row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+  #state .k { color: var(--dim); }
+  #state .v { text-align: right; }
+  #state .v.known { color: var(--green); }
+  #facts { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 5px; color: var(--dim); line-height: 1.45; }
+
+  /* ---- speech ---- */
+  .spacer { flex: 1; }
+  #heard { font-size: 13px; color: var(--dim); margin-bottom: 8px; min-height: 18px; }
+  #speech {
+    font-size: 26px; line-height: 1.28; font-weight: 500; letter-spacing: -.01em;
+    text-shadow: 0 2px 22px rgba(0,0,0,.85); margin-bottom: 18px; min-height: 68px;
+  }
+  #speech.correction { color: var(--amber); }
+  #speech.done { color: var(--green); }
+
+  /* ---- controls ---- */
+  .controls { display: flex; gap: 10px; align-items: center; }
+  button {
+    font: inherit; color: var(--fg); background: rgba(24,28,34,.9); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px 18px; font-weight: 600; backdrop-filter: blur(8px);
+  }
+  button:active { transform: scale(.97); }
+  #next { flex: 1; font-size: 19px; background: rgba(242,244,247,.95); color: #0b0d10; border: none; }
+  #look { flex: 1; }
+  #mic.on { border-color: var(--green); color: var(--green); }
+  .hint { font-size: 11px; color: var(--dim); text-align: center; margin-top: 9px; min-height: 14px; }
+
+  /* ---- start screen ---- */
+  #start {
+    position: fixed; inset: 0; background: var(--bg); z-index: 10;
+    display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 26px;
+  }
+  #start h1 { margin: 0; font-size: 30px; letter-spacing: -.02em; }
+  #start p { margin: 0; color: var(--dim); font-size: 15px; }
+  #goal {
+    width: 100%; min-height: 108px; padding: 14px; font: inherit; resize: none;
+    background: #11151a; color: var(--fg); border: 1px solid var(--line); border-radius: 14px;
+  }
+  #go { background: var(--fg); color: #0b0d10; border: none; padding: 18px; font-size: 18px; }
+  #err { color: var(--amber); font-size: 13px; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<video id="video" playsinline muted autoplay></video>
+
+<div class="layer">
+  <div class="top">
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">idle</span></div>
+    <div id="state">
+      <div class="row"><span class="k">step</span><span class="v" id="s-step">-</span></div>
+      <div class="row"><span class="k">wall</span><span class="v" id="s-wall">unknown</span></div>
+      <div class="row"><span class="k">mode</span><span class="v" id="s-mode">unknown</span></div>
+      <div class="row"><span class="k">hardware</span><span class="v" id="s-hw">unknown</span></div>
+      <div id="facts"></div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div id="heard"></div>
+  <div id="speech"></div>
+
+  <div class="controls">
+    <button id="next">Next</button>
+    <button id="look">How's this?</button>
+    <button id="mic">Mic</button>
+  </div>
+  <div class="hint" id="hint"></div>
+</div>
+
+<div id="start">
+  <h1>Build Coach</h1>
+  <p>Point the camera at your work. Say <b>“next”</b> when you're ready for the next step, or <b>“does this look good”</b> to be checked.</p>
+  <textarea id="goal">My goal is to put up a hook in the wall but I'm not sure where to drill and how to do it. I'm using these hooks and I have this stud finder.</textarea>
+  <button id="go">Start</button>
+  <div id="err"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const video = $("video");
+const canvas = document.createElement("canvas");
+
+let state = null;
+let history = [];
+let busy = false;
+let handsFree = true;
+let recog = null;
+let speaking = false;
+
+/* ---------- camera ---------- */
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 960 } },
+    audio: false,
+  });
+  video.srcObject = stream;
+  await video.play();
+}
+
+function grabFrame() {
+  if (!video.videoWidth) return null;
+  const w = 768;
+  const h = Math.round((video.videoHeight / video.videoWidth) * w);
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d").drawImage(video, 0, 0, w, h);
+  return canvas.toDataURL("image/jpeg", 0.72).split(",")[1];
+}
+
+/* ---------- voice out ---------- */
+function say(text) {
+  return new Promise((resolve) => {
+    if (!window.speechSynthesis) return resolve();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05; u.pitch = 1; u.lang = "en-US";
+    const v = speechSynthesis.getVoices().find((v) => /Samantha|Google US English|Alex/.test(v.name));
+    if (v) u.voice = v;
+    speaking = true;
+    setStatus("speaking", "speaking");
+    stopListening();
+    const finish = () => { speaking = false; resolve(); listenAgain(); };
+    u.onend = finish;
+    u.onerror = finish;
+    speechSynthesis.speak(u);
+  });
+}
+
+/* ---------- voice in ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function buildRecognizer() {
+  if (!SR) { $("hint").textContent = "Speech recognition unavailable here - use the buttons."; return null; }
+  const r = new SR();
+  r.lang = "en-US";
+  r.interimResults = false;
+  r.maxAlternatives = 1;
+  r.continuous = false; // iOS ignores continuous; we restart manually
+  r.onresult = (e) => {
+    const said = e.results[e.results.length - 1][0].transcript.trim();
+    if (said) turn(said);
+  };
+  r.onend = () => { if (handsFree && !busy && !speaking) safeStart(); };
+  r.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      handsFree = false; $("mic").classList.remove("on");
+      $("hint").textContent = "Mic blocked - tap Next / How's this? instead.";
+    }
+  };
+  return r;
+}
+
+function safeStart() {
+  if (!recog || busy || speaking) return;
+  try { recog.start(); setStatus("listening", "listening"); }
+  catch { /* already started */ }
+}
+function stopListening() { try { recog && recog.stop(); } catch {} }
+function listenAgain() { if (handsFree) setTimeout(safeStart, 250); else setStatus("", "ready"); }
+
+/* ---------- a turn ---------- */
+function setStatus(cls, text) {
+  $("dot").className = "dot " + cls;
+  $("statusText").textContent = text;
+}
+
+function renderState(s) {
+  if (!s) return;
+  const put = (id, val) => {
+    const el = $(id);
+    el.textContent = val || "unknown";
+    el.classList.toggle("known", !!val && val !== "unknown" && val !== "not visible");
+  };
+  put("s-step", s.step); put("s-wall", s.wall_material);
+  put("s-mode", s.stud_finder_mode); put("s-hw", s.hardware);
+  $("facts").innerHTML = (s.facts || []).slice(-4).map((f) => "· " + f).join("<br>");
+}
+
+async function turn(utterance) {
+  if (busy) return;
+  busy = true;
+  stopListening();
+  $("heard").textContent = "“" + utterance + "”";
+  setStatus("thinking", "thinking");
+
+  const image = grabFrame();
+  try {
+    const res = await fetch("/api/next", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ utterance, image, state, history }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    state = data.state;
+    renderState(state);
+    history.push({ role: "user", text: utterance }, { role: "agent", text: data.speech });
+
+    const box = $("speech");
+    box.className = data.correction ? "correction" : data.done ? "done" : "";
+    box.textContent = data.speech;
+    $("hint").textContent = data.ms ? data.ms + "ms" : "";
+
+    busy = false;
+    await say(data.speech);
+  } catch (err) {
+    $("speech").textContent = "";
+    $("hint").textContent = "Error: " + err.message;
+    busy = false;
+    listenAgain();
+  }
+}
+
+/* ---------- wiring ---------- */
+$("go").addEventListener("click", async () => {
+  try {
+    await startCamera();
+  } catch (err) {
+    $("err").textContent = "Camera blocked: " + err.message + " (needs https + permission)";
+    return;
+  }
+  // iOS requires a user gesture to unlock audio output
+  if (window.speechSynthesis) speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+  try { navigator.wakeLock?.request("screen"); } catch {}
+
+  recog = buildRecognizer();
+  $("mic").classList.toggle("on", handsFree && !!recog);
+  const goal = $("goal").value.trim();
+  $("start").style.display = "none";
+  turn(goal || "Next.");
+});
+
+$("next").addEventListener("click", () => turn("Next."));
+$("look").addEventListener("click", () => turn("Does this look good?"));
+$("mic").addEventListener("click", () => {
+  handsFree = !handsFree;
+  $("mic").classList.toggle("on", handsFree);
+  if (handsFree) safeStart(); else { stopListening(); setStatus("", "ready"); }
+});
+</script>
+</body>
+</html>
