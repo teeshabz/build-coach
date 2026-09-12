@@ -34,6 +34,12 @@
     background: rgba(11,13,16,.72); border: 1px solid var(--line); border-radius: 999px;
     font-size: 13px; letter-spacing: .02em; backdrop-filter: blur(8px);
   }
+  .topleft { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+  .pill {
+    padding: 7px 12px; font-size: 12px; font-weight: 500; border-radius: 999px;
+    background: rgba(11,13,16,.72); border: 1px solid var(--line); color: var(--dim);
+    backdrop-filter: blur(8px);
+  }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
   .dot.listening { background: var(--green); animation: pulse 1.4s infinite; }
   .dot.thinking  { background: var(--amber); animation: pulse .7s infinite; }
@@ -94,7 +100,10 @@
 
 <div class="layer">
   <div class="top">
-    <div class="status"><span class="dot" id="dot"></span><span id="statusText">idle</span></div>
+    <div class="topleft">
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">idle</span></div>
+      <button id="reset" class="pill">↺ Start over</button>
+    </div>
     <div id="state">
       <div class="row"><span class="k">step</span><span class="v" id="s-step">-</span></div>
       <div class="row"><span class="k">wall</span><span class="v" id="s-wall">unknown</span></div>
@@ -139,6 +148,7 @@ let speaking = false;
 
 /* ---------- camera ---------- */
 async function startCamera() {
+  if (video.srcObject) return; // still running from the previous round
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 960 } },
     audio: false,
@@ -287,6 +297,29 @@ $("mic").addEventListener("click", () => {
   handsFree = !handsFree;
   setVoiceButton();
   if (handsFree) safeStart(); else { stopListening(); setStatus("", "ready"); }
+});
+
+$("reset").addEventListener("click", () => {
+  try { speechSynthesis.cancel(); } catch {}
+  stopListening();
+  handsFree = false;
+  busy = false;
+  speaking = false;
+  state = null;
+  history = [];
+  $("heard").textContent = "";
+  $("speech").textContent = "";
+  $("speech").className = "";
+  $("hint").textContent = "";
+  $("err").textContent = "";
+  $("facts").innerHTML = "";
+  for (const id of ["s-step", "s-wall", "s-mode", "s-hw"]) {
+    $(id).textContent = id === "s-step" ? "-" : "unknown";
+    $(id).classList.remove("known");
+  }
+  setStatus("", "idle");
+  setVoiceButton();
+  $("start").style.display = "flex"; // camera keeps running, so Start is instant
 });
 
 function setVoiceButton() {
