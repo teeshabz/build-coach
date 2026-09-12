@@ -82,10 +82,19 @@
   /* ---- start screen ---- */
   #start {
     position: fixed; inset: 0; background: var(--bg); z-index: 10;
-    display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 26px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    gap: 18px; padding: 26px; text-align: center;
   }
-  #start h1 { margin: 0; font-size: 30px; letter-spacing: -.02em; }
-  #start p { margin: 0; color: var(--dim); font-size: 15px; }
+  #start h1 {
+    margin: 0 0 4px;
+    /* SF Rounded on Apple devices - friendlier than the UI face, and no download to fail on venue wifi */
+    font-family: ui-rounded, "SF Pro Rounded", "Avenir Next Rounded", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+    font-size: clamp(52px, 17vw, 78px); font-weight: 800; line-height: .95; letter-spacing: -.035em;
+    background: linear-gradient(160deg, #fff 30%, #7fd8b4 115%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  #start p { margin: 0; color: var(--dim); font-size: 15px; max-width: 20em; }
+  #go { width: 100%; max-width: 320px; }
   #goal {
     width: 100%; min-height: 108px; padding: 14px; font: inherit; resize: none;
     background: #11151a; color: var(--fg); border: 1px solid var(--line); border-radius: 14px;
@@ -132,11 +141,11 @@
 </div>
 
 <div id="start">
-  <h1>What are you<br>trying to do?</h1>
-  <p>Tap start and just tell it. It'll ask what you're hanging and where, have a look at your hardware, then talk you through it a step at a time.</p>
-  <button id="go">Start talking</button>
-  <button id="typeToggle" class="link">or type it instead</button>
-  <textarea id="goal" hidden placeholder="I'm trying to hang a plant from the ceiling. I have these hooks and a stud finder."></textarea>
+  <h1>Build<br>Coach</h1>
+  <p>Point your camera at the job. Talk to it like a person.</p>
+  <button id="go">Start</button>
+  <button id="typeToggle" class="link">or type instead</button>
+  <textarea id="goal" hidden placeholder="I want to hang a plant from the ceiling. I have these hooks and a stud finder."></textarea>
   <div id="err"></div>
 </div>
 
@@ -151,6 +160,7 @@ let busy = false;
 let handsFree = false; // buttons first; flip on with the Voice button
 let recog = null;
 let run = null; // one id per demo run, groups the recorded turns
+const OPENING = "What are you building today?";
 let speaking = false;
 
 /* ---------- camera ---------- */
@@ -313,8 +323,13 @@ $("go").addEventListener("click", async () => {
   run = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
   const goal = $("goal").value.trim();
   $("start").style.display = "none";
-  // with no typed goal, the agent opens by asking what the job is
-  turn(goal || "(they have just opened the app and said nothing yet)");
+
+  if (goal) { turn(goal); return; }
+  // Always the same first line, so say it straight away rather than spending
+  // a round trip on it. Their answer is the first real turn.
+  $("speech").textContent = OPENING;
+  history.push({ role: "agent", text: OPENING });
+  await say(OPENING);
 });
 
 $("typeToggle").addEventListener("click", () => {
