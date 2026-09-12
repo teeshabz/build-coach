@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "cert": "sh scripts/make-cert.sh"
+    "cert": "sh scripts/make-cert.sh",
+    "phone": "sh scripts/make-cert.sh && cp certs/cert.pem public/cert.pem && node server.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0"
