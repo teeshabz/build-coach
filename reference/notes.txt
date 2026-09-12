@@ -12,5 +12,8 @@ Stud finder (red, JAXWQ, green LCD):
 - A second box icon shows scan depth and varies (1/2", 1"). Changing depth is NOT a mode
   error and must not be corrected.
 - The screen is GREEN at all times, idle and scanning alike. Green never means "found it".
-- While sweeping it shows a bar graph and an arrow. The arrow means keep moving that way -
-  it has NOT found the centre yet. Do not call a stud off an arrow.
+- While sweeping it shows a bar graph and a small sideways arrow. That arrow means keep moving
+  that way - it has NOT found the centre yet. Do not call a stud off a sideways arrow.
+- It has FOUND the centre only when the word CENTER appears in a dark bar at the bottom of the
+  screen, with a big filled arrow pointing up and the bars solid. That word is the only
+  reliable 'found it' signal.
