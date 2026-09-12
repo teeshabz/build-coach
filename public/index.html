@@ -112,14 +112,14 @@
   <div class="controls">
     <button id="next">Next</button>
     <button id="look">How's this?</button>
-    <button id="mic">Mic</button>
+    <button id="mic">Voice off</button>
   </div>
   <div class="hint" id="hint"></div>
 </div>
 
 <div id="start">
   <h1>Build Coach</h1>
-  <p>Point the camera at your work. Say <b>“next”</b> when you're ready for the next step, or <b>“does this look good”</b> to be checked.</p>
+  <p>Point the camera at your work. Tap <b>Next</b> when you are ready for the next step, or <b>How’s this?</b> to be checked. Turn on <b>Voice</b> when you want to say it instead.</p>
   <textarea id="goal">My goal is to put up a hook in the wall but I'm not sure where to drill and how to do it. I'm using these hooks and I have this stud finder.</textarea>
   <button id="go">Start</button>
   <div id="err"></div>
@@ -133,7 +133,7 @@ const canvas = document.createElement("canvas");
 let state = null;
 let history = [];
 let busy = false;
-let handsFree = true;
+let handsFree = false; // buttons first; flip on with the Voice button
 let recog = null;
 let speaking = false;
 
@@ -192,7 +192,7 @@ function buildRecognizer() {
   r.onend = () => { if (handsFree && !busy && !speaking) safeStart(); };
   r.onerror = (e) => {
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-      handsFree = false; $("mic").classList.remove("on");
+      handsFree = false; setVoiceButton();
       $("hint").textContent = "Mic blocked - tap Next / How's this? instead.";
     }
   };
@@ -274,7 +274,7 @@ $("go").addEventListener("click", async () => {
   try { navigator.wakeLock?.request("screen"); } catch {}
 
   recog = buildRecognizer();
-  $("mic").classList.toggle("on", handsFree && !!recog);
+  setVoiceButton();
   const goal = $("goal").value.trim();
   $("start").style.display = "none";
   turn(goal || "Next.");
@@ -283,10 +283,16 @@ $("go").addEventListener("click", async () => {
 $("next").addEventListener("click", () => turn("Next."));
 $("look").addEventListener("click", () => turn("Does this look good?"));
 $("mic").addEventListener("click", () => {
+  if (!recog) return;
   handsFree = !handsFree;
-  $("mic").classList.toggle("on", handsFree);
+  setVoiceButton();
   if (handsFree) safeStart(); else { stopListening(); setStatus("", "ready"); }
 });
+
+function setVoiceButton() {
+  $("mic").classList.toggle("on", handsFree && !!recog);
+  $("mic").textContent = !recog ? "No voice" : handsFree ? "Voice on" : "Voice off";
+}
 </script>
 </body>
 </html>
