@@ -51,6 +51,9 @@ const TYPES = {
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".ico": "image/x-icon",
+  // served as a cert so iOS offers to install it, for when tapping through
+  // the warning isn't enough to unlock the camera
+  ".pem": "application/x-x509-ca-cert",
 };
 
 async function handler(req, res) {

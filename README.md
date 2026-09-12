@@ -64,3 +64,18 @@ node scripts/review.mjs <run> 7 03-metal-mode   # promote a frame to a fixture
 That last one is the point: when it gets a turn wrong on camera, promote that
 exact frame into `fixtures/` and it becomes a regression test for the next
 prompt change.
+
+## On the phone
+
+```sh
+npm run cert     # once, or again if your LAN IP changes
+npm start        # no INSECURE=1 - that forces plain HTTP
+```
+
+Open the `your phone:` URL it prints, on the same wifi. Safari warns about the
+certificate: **Show Details → visit this website**. If it still refuses the
+camera, install the cert instead — visit `/cert.pem`, then Settings → General →
+VPN & Device Management → install, and Settings → General → About → Certificate
+Trust Settings → switch it on.
+
+The cert is pinned to the LAN IP, so on a different network re-run `npm run cert`.
