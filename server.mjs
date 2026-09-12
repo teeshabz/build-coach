@@ -99,13 +99,29 @@ async function handler(req, res) {
 
 const KEY = path.join(import.meta.dirname, "certs", "key.pem");
 const CRT = path.join(import.meta.dirname, "certs", "cert.pem");
+
+const lan = Object.values(networkInterfaces()).flat().find((i) => i?.family === "IPv4" && !i.internal)?.address;
+
+/* The cert is pinned to the LAN IP, so switching networks - venue wifi to a
+   phone hotspot, say - silently breaks it. Notice and reissue, rather than
+   making someone remember `npm run cert` while a demo is waiting. */
+if (!process.env.INSECURE && lan && existsSync(CRT)) {
+  try {
+    const { execFileSync } = await import("node:child_process");
+    const san = execFileSync("openssl", ["x509", "-in", CRT, "-noout", "-text"], { encoding: "utf8" });
+    if (!san.includes(`IP Address:${lan}`)) {
+      console.log(`\n  IP is now ${lan}, which the certificate doesn't cover. Reissuing...`);
+      execFileSync("sh", [path.join(import.meta.dirname, "scripts", "make-cert.sh")], { stdio: "ignore" });
+    }
+  } catch { /* openssl missing or cert unreadable - fall through and serve what we have */ }
+}
+
 const secure = !process.env.INSECURE && existsSync(KEY) && existsSync(CRT);
 
 const server = secure
   ? createHttpsServer({ key: await readFile(KEY), cert: await readFile(CRT) }, handler)
   : createHttpServer(handler);
 
-const lan = Object.values(networkInterfaces()).flat().find((i) => i?.family === "IPv4" && !i.internal)?.address;
 
 server.listen(PORT, async () => {
   const scheme = secure ? "https" : "http";
