@@ -28,14 +28,16 @@
   #app { position: fixed; inset: 0; overflow: hidden; }
   @media (min-width: 700px) {
     body { background: #07080a; display: grid; place-items: center; }
+    /* Square edges by default: a screen grab crops straight to a clean vertical
+       video, rather than filming a picture of a phone. ?bezel puts it back. */
     #app {
       position: relative; inset: auto;
       height: min(94vh, 900px); aspect-ratio: 9 / 19.5;
+    }
+    body.bezel #app {
       border-radius: 46px; border: 1px solid #23282f;
       box-shadow: 0 40px 90px rgba(0,0,0,.6), 0 0 0 9px #14171b;
     }
-    /* ?bare drops the bezel and corners so a screen grab crops to clean edges */
-    body.bare #app { border-radius: 0; border: none; box-shadow: none; }
   }
 
   #video {
@@ -235,8 +237,8 @@ let recog = null;
 let run = null; // one id per demo run, groups the recorded turns
 const OPENING = "What are you building today?";
 const DEBUG = new URLSearchParams(location.search).has("debug"); // ?debug shows timings
-// ?bare = square edges, no bezel, for recording a clean vertical crop
-if (new URLSearchParams(location.search).has("bare")) document.body.classList.add("bare");
+// ?bezel shows the phone mockup frame; plain is square-edged for recording
+if (new URLSearchParams(location.search).has("bezel")) document.body.classList.add("bezel");
 let speaking = false;
 
 /* ---------- camera ---------- */
