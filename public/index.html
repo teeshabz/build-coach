@@ -17,15 +17,35 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; height: 100%; background: var(--bg); color: var(--fg);
-    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    font: 16px/1.45 ui-rounded, "SF Pro Rounded", "Avenir Next", system-ui, sans-serif;
     overflow: hidden; overscroll-behavior: none;
   }
-  #video {
-    position: fixed; inset: 0; width: 100%; height: 100%;
-    object-fit: cover; background: #000; filter: brightness(.62);
+
+  /* On a phone the app is the whole screen. On a laptop it sits in a 9:16
+     frame, so a screen recording crops straight to a vertical video. */
+  #app { position: fixed; inset: 0; overflow: hidden; }
+  @media (min-width: 700px) {
+    body { background: #07080a; display: grid; place-items: center; }
+    #app {
+      position: relative; inset: auto;
+      height: min(94vh, 900px); aspect-ratio: 9 / 19.5;
+      border-radius: 46px; border: 1px solid #23282f;
+      box-shadow: 0 40px 90px rgba(0,0,0,.6), 0 0 0 9px #14171b;
+    }
   }
-  .layer { position: fixed; inset: 0; display: flex; flex-direction: column;
-           padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); }
+
+  #video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; background: #000; filter: brightness(.66) saturate(1.05);
+  }
+  /* keeps text readable over any camera scene without dimming the whole frame */
+  .scrim {
+    position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(7,9,11,.78) 0%, rgba(7,9,11,.15) 30%,
+                rgba(7,9,11,.35) 58%, rgba(7,9,11,.92) 100%);
+  }
+  .layer { position: absolute; inset: 0; display: flex; flex-direction: column;
+           padding: max(16px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom)); }
 
   /* ---- top row ---- */
   .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
@@ -41,47 +61,70 @@
     backdrop-filter: blur(8px);
   }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
-  .dot.listening { background: var(--green); animation: pulse 1.4s infinite; }
+  .dot.listening { background: var(--green); box-shadow: 0 0 0 0 rgba(56,211,159,.55); animation: ring 1.8s infinite; }
   .dot.thinking  { background: var(--amber); animation: pulse .7s infinite; }
-  .dot.speaking  { background: #6aa8ff; }
+  .dot.speaking  { background: #6aa8ff; box-shadow: 0 0 0 0 rgba(106,168,255,.5); animation: ring 1.2s infinite; }
   @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+  @keyframes ring {
+    0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1 }
+    70%  { box-shadow: 0 0 0 11px rgba(0,0,0,0); opacity: .85 }
+    100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); opacity: 1 }
+  }
 
   #state {
-    background: rgba(11,13,16,.72); border: 1px solid var(--line); border-radius: 12px;
-    padding: 9px 11px; font-size: 11px; min-width: 168px; backdrop-filter: blur(8px);
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: rgba(12,15,19,.66); border: 1px solid rgba(255,255,255,.09);
+    border-radius: 18px; padding: 12px 14px; font-size: 12.5px; width: 62%; max-width: 230px;
+    backdrop-filter: blur(16px) saturate(1.2);
   }
-  #state .row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
-  #state .k { color: var(--dim); }
-  #state .v { text-align: right; }
+  .statehead {
+    font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+    color: rgba(255,255,255,.42); margin-bottom: 8px; font-weight: 600;
+  }
+  #state .row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; align-items: baseline; }
+  #state .k { color: rgba(255,255,255,.5); white-space: nowrap; }
+  #state .v { text-align: right; font-weight: 600; color: rgba(255,255,255,.55); white-space: nowrap; }
   #state .v.known { color: var(--green); }
-  #facts { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 5px; color: var(--dim); line-height: 1.45; }
+  #facts { margin-top: 9px; border-top: 1px solid rgba(255,255,255,.09); padding-top: 8px;
+           color: rgba(255,255,255,.62); font-size: 11.5px; line-height: 1.5; }
+  #facts div { margin-top: 3px; animation: liftin .45s ease-out; }
+  @keyframes liftin { from { opacity: 0; transform: translateY(5px) } to { opacity: 1 } }
 
   /* ---- speech ---- */
   .spacer { flex: 1; }
-  #heard { font-size: 13px; color: var(--dim); margin-bottom: 8px; min-height: 18px; }
+  #heard { font-size: 13.5px; color: rgba(255,255,255,.5); margin-bottom: 10px; min-height: 19px; font-style: italic; }
   #speech {
-    font-size: 26px; line-height: 1.28; font-weight: 500; letter-spacing: -.01em;
-    text-shadow: 0 2px 22px rgba(0,0,0,.85); margin-bottom: 18px; min-height: 68px;
+    font-size: clamp(23px, 5.6vw, 31px); line-height: 1.24; font-weight: 650; letter-spacing: -.022em;
+    text-shadow: 0 2px 26px rgba(0,0,0,.9); margin-bottom: 20px; min-height: 76px;
+    animation: liftin .35s ease-out;
   }
   #speech.correction { color: var(--amber); }
   #speech.done { color: var(--green); }
+  /* the correction is the moment of the demo - make the whole frame register it */
+  #app.correcting::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    box-shadow: inset 0 0 0 3px var(--amber), inset 0 0 60px rgba(255,176,32,.28);
+    animation: alert 1.5s ease-out;
+  }
+  @keyframes alert { 0% { opacity: 0 } 18% { opacity: 1 } 100% { opacity: 0 } }
 
   /* ---- controls ---- */
   .controls { display: flex; gap: 10px; align-items: center; }
   button {
-    font: inherit; color: var(--fg); background: rgba(24,28,34,.9); border: 1px solid var(--line);
-    border-radius: 14px; padding: 16px 18px; font-weight: 600; backdrop-filter: blur(8px);
+    font: inherit; color: var(--fg); background: rgba(26,31,38,.82); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 17px; padding: 15px 16px; font-weight: 650; backdrop-filter: blur(14px);
+    transition: transform .12s ease;
   }
-  button:active { transform: scale(.97); }
-  #next { flex: 1; font-size: 19px; background: rgba(242,244,247,.95); color: #0b0d10; border: none; }
-  #look { flex: 1; }
-  #mic.on { border-color: var(--green); color: var(--green); }
-  .hint { font-size: 11px; color: var(--dim); text-align: center; margin-top: 9px; min-height: 14px; }
+  button:active { transform: scale(.96); }
+  .controls button { white-space: nowrap; }
+  #next { flex: 1.15; font-size: 18px; background: #f4f6f8; color: #0b0d10; border: none; }
+  #look { flex: 1; font-size: 14.5px; padding-left: 12px; padding-right: 12px; }
+  #mic { font-size: 14.5px; padding-left: 13px; padding-right: 13px; }
+  #mic.on { border-color: rgba(56,211,159,.55); color: var(--green); background: rgba(56,211,159,.1); }
+  .hint { font-size: 11px; color: rgba(255,255,255,.38); text-align: center; margin-top: 10px; min-height: 14px; }
 
   /* ---- start screen ---- */
   #start {
-    position: fixed; inset: 0; background: var(--bg); z-index: 10;
+    position: absolute; inset: 0; background: var(--bg); z-index: 10;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     gap: 18px; padding: 26px; text-align: center;
   }
@@ -109,7 +152,9 @@
 </head>
 <body>
 
+<div id="app">
 <video id="video" playsinline muted autoplay></video>
+<div class="scrim"></div>
 
 <div class="layer">
   <div class="top">
@@ -118,12 +163,13 @@
       <button id="reset" class="pill">↺ Start over</button>
     </div>
     <div id="state">
-      <div class="row"><span class="k">phase</span><span class="v" id="s-mode-phase">intake</span></div>
-      <div class="row"><span class="k">step</span><span class="v" id="s-step">-</span></div>
-      <div class="row"><span class="k">wall</span><span class="v" id="s-wall">unknown</span></div>
-      <div class="row"><span class="k">finder</span><span class="v" id="s-mode">unknown</span></div>
-      <div class="row"><span class="k">hardware</span><span class="v" id="s-hw">unknown</span></div>
+      <div class="statehead">What I know so far</div>
+      <div class="row"><span class="k">Wall</span><span class="v" id="s-wall">—</span></div>
+      <div class="row"><span class="k">Finder</span><span class="v" id="s-mode">—</span></div>
+      <div class="row"><span class="k">Fastening</span><span class="v" id="s-hw">—</span></div>
       <div id="facts"></div>
+      <span id="s-mode-phase" hidden>intake</span>
+      <span id="s-step" hidden>-</span>
     </div>
   </div>
 
@@ -134,7 +180,7 @@
 
   <div class="controls">
     <button id="next">Next</button>
-    <button id="look">How's this?</button>
+    <button id="look">Check this</button>
     <button id="mic">🎤 Listen</button>
   </div>
   <div class="hint" id="hint"></div>
@@ -147,6 +193,7 @@
   <button id="typeToggle" class="link">or type instead</button>
   <textarea id="goal" hidden placeholder="I want to hang a plant from the ceiling. I have these hooks and a stud finder."></textarea>
   <div id="err"></div>
+</div>
 </div>
 
 <script>
@@ -161,6 +208,7 @@ let handsFree = false; // buttons first; flip on with the Voice button
 let recog = null;
 let run = null; // one id per demo run, groups the recorded turns
 const OPENING = "What are you building today?";
+const DEBUG = new URLSearchParams(location.search).has("debug"); // ?debug shows timings
 let speaking = false;
 
 /* ---------- camera ---------- */
@@ -216,7 +264,7 @@ function speakChunk(text) {
 
   queued++;
   speaking = true;
-  setStatus("speaking", "speaking");
+  setStatus("speaking", "speaking…");
   stopListening(); // never let it hear itself
   const finish = () => {
     if (--queued > 0) return;      // more sentences still to play
@@ -308,8 +356,9 @@ function renderState(s) {
   if (!s) return;
   const put = (id, val) => {
     const el = $(id);
-    el.textContent = val || "unknown";
-    el.classList.toggle("known", !!val && val !== "unknown" && val !== "not visible");
+    const known = !!val && val !== "unknown" && val !== "not visible" && val !== "not started";
+    el.textContent = known ? val : "—";
+    el.classList.toggle("known", known);
   };
   const phase = $("s-mode-phase");
   if (s.mode && phase.textContent !== s.mode) {
@@ -323,7 +372,13 @@ function renderState(s) {
   }
   put("s-step", s.step); put("s-wall", s.wall_material);
   put("s-mode", s.stud_finder_mode); put("s-hw", s.hardware);
-  $("facts").innerHTML = (s.facts || []).slice(-4).map((f) => "· " + f).join("<br>");
+  // rebuild only when it changed, so confirmed facts don't re-animate every turn
+  const facts = (s.facts || []).slice(-3);
+  const key = facts.join("|");
+  if (key !== $("facts").dataset.key) {
+    $("facts").dataset.key = key;
+    $("facts").innerHTML = facts.map((f) => "<div>✓ " + f + "</div>").join("");
+  }
 }
 
 let inflight = null;
@@ -334,7 +389,7 @@ async function turn(utterance) {
   inflight = ctrl;
   busy = true;
   $("heard").textContent = "“" + utterance + "”";
-  setStatus("thinking", "thinking");
+  setStatus("thinking", "looking…");
 
   const image = grabFrame();
   try {
@@ -382,8 +437,13 @@ async function turn(utterance) {
 
     box.className = data.correction ? "correction" : data.done ? "done" : "";
     box.textContent = data.speech;
+    if (data.correction) { // the frame itself reacts - this is the moment
+      $("app").classList.remove("correcting");
+      void $("app").offsetWidth;
+      $("app").classList.add("correcting");
+    }
     if (!queued && !speaking) speakChunk(data.speech); // streaming off, or nothing sent
-    $("hint").textContent = data.firstWordAt ? data.firstWordAt + "ms to speech, " + data.ms + "ms total" : data.ms + "ms";
+    if (DEBUG) $("hint").textContent = data.firstWordAt ? data.firstWordAt + "ms to speech, " + data.ms + "ms total" : data.ms + "ms";
 
     busy = false;
     inflight = null;
