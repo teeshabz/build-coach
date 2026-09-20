@@ -12,6 +12,8 @@
     --dim: #8b95a3;
     --line: #1e242c;
     --amber: #ffb020;
+    --say: #ffb257;      /* what the coach says */
+    --alert: #ff7d4d;    /* ...and when it's stopping you */
     --green: #38d39f;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -91,13 +93,17 @@
 
   /* ---- speech ---- */
   .spacer { flex: 1; }
-  #heard { font-size: 13.5px; color: rgba(255,255,255,.5); margin-bottom: 10px; min-height: 19px; font-style: italic; }
+  #heard {
+    font-size: 16px; color: #fff; font-weight: 550; margin-bottom: 12px; min-height: 22px;
+    text-shadow: 0 2px 18px rgba(0,0,0,.85);
+  }
   #speech {
     font-size: clamp(23px, 5.6vw, 31px); line-height: 1.24; font-weight: 650; letter-spacing: -.022em;
+    color: var(--say);
     text-shadow: 0 2px 26px rgba(0,0,0,.9); margin-bottom: 20px; min-height: 76px;
     animation: liftin .35s ease-out;
   }
-  #speech.correction { color: var(--amber); }
+  #speech.correction { color: var(--alert); }
   #speech.done { color: var(--green); }
   /* the correction is the moment of the demo - make the whole frame register it */
   #app.correcting::after {
@@ -109,6 +115,10 @@
 
   /* ---- controls ---- */
   .controls { display: flex; gap: 10px; align-items: center; }
+  /* while the mic is live the buttons are clutter; paused or mic-less, they are
+     the only way to drive it, so they come back on their own */
+  .controls.voice #next, .controls.voice #look { display: none; }
+  .controls.voice #mic { flex: 1; font-size: 17px; padding: 17px; }
   button {
     font: inherit; color: var(--fg); background: rgba(26,31,38,.82); border: 1px solid rgba(255,255,255,.1);
     border-radius: 17px; padding: 15px 16px; font-weight: 650; backdrop-filter: blur(14px);
@@ -536,10 +546,12 @@ $("reset").addEventListener("click", () => {
 });
 
 function setVoiceButton() {
-  $("mic").classList.toggle("on", handsFree && !!recog);
+  const live = handsFree && !!recog;
+  $("mic").classList.toggle("on", live);
   // label says what tapping it DOES, so there's no reading required mid-demo
   $("mic").textContent = !recog ? "No mic" : handsFree ? "❚❚ Pause" : "🎤 Listen";
-  $("hint").textContent = handsFree ? "" : recog ? "mic paused - talk freely" : "";
+  document.querySelector(".controls").classList.toggle("voice", live);
+  $("hint").textContent = handsFree ? "" : recog ? "mic paused — tap Listen when you're ready" : "";
 }
 </script>
 </body>
