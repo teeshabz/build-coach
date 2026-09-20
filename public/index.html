@@ -90,13 +90,18 @@
   #state .k { color: rgba(255,255,255,.5); white-space: nowrap; }
   #state .v { text-align: right; font-weight: 600; color: rgba(255,255,255,.55); white-space: nowrap; }
   #state .v.known { color: var(--green); }
-  #facts { margin-top: 9px; border-top: 1px solid rgba(255,255,255,.09); padding-top: 8px;
-           color: rgba(255,255,255,.62); font-size: 11.5px; line-height: 1.5; }
-  #facts div { margin-top: 3px; animation: liftin .45s ease-out; }
+  /* newest note on top, fixed height so the card never grows into the shot */
+  #facts { color: rgba(255,255,255,.72); font-size: 11.5px; line-height: 1.45;
+           max-height: 108px; overflow-y: auto; scrollbar-width: none; }
+  #facts::-webkit-scrollbar { display: none; }
+  #facts div { padding: 3px 0; animation: liftin .45s ease-out; }
+  #facts div + div { border-top: 1px solid rgba(255,255,255,.07); }
+  #facts div:first-child { color: var(--green); }
   @keyframes liftin { from { opacity: 0; transform: translateY(5px) } to { opacity: 1 } }
 
   /* ---- speech ---- */
   .spacer { flex: 1; }
+  .spacer.low { flex: .72; }  /* leaves the speech sitting around eye level, not pinned to the floor */
   #heard {
     font-size: 16px; color: #fff; font-weight: 550; margin-bottom: 12px; min-height: 22px;
     text-shadow: 0 2px 18px rgba(0,0,0,.85);
@@ -121,8 +126,7 @@
   .controls { display: flex; gap: 10px; align-items: center; }
   /* while the mic is live the buttons are clutter; paused or mic-less, they are
      the only way to drive it, so they come back on their own */
-  .controls.voice #next, .controls.voice #look { display: none; }
-  .controls.voice #mic { flex: 1; font-size: 17px; padding: 17px; }
+  .controls #mic { flex: 1; font-size: 17px; padding: 17px; }
   button {
     font: inherit; color: var(--fg); background: rgba(26,31,38,.82); border: 1px solid rgba(255,255,255,.1);
     border-radius: 17px; padding: 15px 16px; font-weight: 650; backdrop-filter: blur(14px);
@@ -130,9 +134,6 @@
   }
   button:active { transform: scale(.96); }
   .controls button { white-space: nowrap; }
-  #next { flex: 1.15; font-size: 18px; background: #f4f6f8; color: #0b0d10; border: none; }
-  #look { flex: 1; font-size: 14.5px; padding-left: 12px; padding-right: 12px; }
-  #mic { font-size: 14.5px; padding-left: 13px; padding-right: 13px; }
   #mic.on { border-color: rgba(56,211,159,.55); color: var(--green); background: rgba(56,211,159,.1); }
   .hint { font-size: 11px; color: rgba(255,255,255,.38); text-align: center; margin-top: 10px; min-height: 14px; }
 
@@ -179,12 +180,10 @@
     </div>
     <div id="state">
       <div class="statehead">What I know so far</div>
-      <div class="row"><span class="k">Wall</span><span class="v" id="s-wall">—</span></div>
-      <div class="row"><span class="k">Finder</span><span class="v" id="s-mode">—</span></div>
-      <div class="row"><span class="k">Fastening</span><span class="v" id="s-hw">—</span></div>
       <div id="facts"></div>
       <span id="s-mode-phase" hidden>intake</span>
       <span id="s-step" hidden>-</span>
+      <span id="s-wall" hidden></span><span id="s-mode" hidden></span><span id="s-hw" hidden></span>
     </div>
   </div>
 
@@ -193,9 +192,9 @@
   <div id="heard"></div>
   <div id="speech"></div>
 
+  <div class="spacer low"></div>
+
   <div class="controls">
-    <button id="next">Next</button>
-    <button id="look">Check this</button>
     <button id="mic">🎤 Listen</button>
   </div>
   <div class="hint" id="hint"></div>
@@ -385,12 +384,7 @@ function setStatus(cls, text) {
 
 function renderState(s) {
   if (!s) return;
-  const put = (id, val) => {
-    const el = $(id);
-    const known = !!val && val !== "unknown" && val !== "not visible" && val !== "not started";
-    el.textContent = known ? val : "—";
-    el.classList.toggle("known", known);
-  };
+  const put = (id, val) => { const el = $(id); if (el) el.textContent = val || ""; };
   const phase = $("s-mode-phase");
   if (s.mode && phase.textContent !== s.mode) {
     phase.textContent = s.mode;
@@ -403,12 +397,14 @@ function renderState(s) {
   }
   put("s-step", s.step); put("s-wall", s.wall_material);
   put("s-mode", s.stud_finder_mode); put("s-hw", s.hardware);
-  // rebuild only when it changed, so confirmed facts don't re-animate every turn
-  const facts = (s.facts || []).slice(-3);
+  // newest first, and only rebuild when something actually changed so settled
+  // notes don't re-animate on every turn
+  const facts = (s.facts || []).slice().reverse();
   const key = facts.join("|");
   if (key !== $("facts").dataset.key) {
     $("facts").dataset.key = key;
-    $("facts").innerHTML = facts.map((f) => "<div>✓ " + f + "</div>").join("");
+    $("facts").innerHTML = facts.map((f) => "<div>" + f + "</div>").join("");
+    $("facts").scrollTop = 0;
   }
 }
 
@@ -528,8 +524,14 @@ function tapped(text) {
   turn(text);
 }
 $("flip").addEventListener("click", flipCamera);
-$("next").addEventListener("click", () => tapped("Next."));
-$("look").addEventListener("click", () => tapped("Does this look good?"));
+
+/* No Next button any more - tapping the camera view advances instead. Keeps the
+   frame clean for filming while leaving a way through if the mic gives out. */
+$("app").addEventListener("click", (e) => {
+  if (e.target.closest("button, textarea, #start, #state")) return;
+  if (busy || speaking) return;
+  tapped("Next.");
+});
 $("mic").addEventListener("click", () => {
   if (!recog) return;
   handsFree = !handsFree;

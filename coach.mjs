@@ -74,7 +74,7 @@ STATE FIELDS:
 - wall_material: "unknown" | "wood stud" | "hollow drywall"
 - stud_finder_mode: "unknown" | "wood" | "metal" | "not visible"
 - hardware: "unknown" | "wood screw" | "toggle bolt" | "plastic anchor"
-- facts: short strings you have confirmed by seeing them; these are what make you consistent across turns. Keep every still-true fact from the previous state and add new ones.`;
+- facts: the running notes on this job, oldest first. These are SHOWN TO THE USER on screen, so write them as short plain notes a person would jot down, not as jargon or status codes. Five to nine words each. Include what they told you as well as what you saw: "wants to hang a hook on a wall", "about 10 lbs, a plant", "has a stud finder and a toggle bolt", "wood stud behind the pencil mark", "no anchor needed here". Keep every still-true note and add new ones as you learn them; drop one only if it turns out to be wrong.`;
 
 const SCHEMA = {
   type: "object",
