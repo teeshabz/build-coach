@@ -282,9 +282,10 @@ function pickVoice() {
     const n = v.name;
     if (/premium|siri/i.test(n)) return 0;
     if (/enhanced/i.test(n)) return 1;
-    if (/Ava|Allison|Samantha|Serena|Zoe|Nathan|Evan/i.test(n)) return 2;
-    if (/Google US English/i.test(n)) return 3;
-    return 4;
+    if (/Ava|Zoe|Evan|Nathan|Serena/i.test(n)) return 2;   // Apple's newer neural set
+    if (/^Google/i.test(n)) return 3;                      // Chrome's remote voices
+    if (/Allison|Samantha|Karen|Moira|Tessa/i.test(n)) return 4; // older compact voices
+    return 5;
   };
   const best = voices.sort((a, b) => rank(a) - rank(b))[0];
   console.log("voice:", best.name, "of", voices.length, "available");
