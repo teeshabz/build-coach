@@ -62,6 +62,10 @@
     background: rgba(11,13,16,.72); border: 1px solid var(--line); color: var(--dim);
     backdrop-filter: blur(8px);
   }
+  .pill.icon { font-size: 16px; line-height: 1; padding: 8px 11px; }
+  /* front camera reads as a mirror to the person in front of it; the frame we
+     send the model is drawn from the raw video, so it stays unmirrored */
+  #video.mirrored { transform: scaleX(-1); }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
   .dot.listening { background: var(--green); box-shadow: 0 0 0 0 rgba(56,211,159,.55); animation: ring 1.8s infinite; }
   .dot.thinking  { background: var(--amber); animation: pulse .7s infinite; }
@@ -171,6 +175,7 @@
     <div class="topleft">
       <div class="status"><span class="dot" id="dot"></span><span id="statusText">idle</span></div>
       <button id="reset" class="pill">↺ Start over</button>
+      <button id="flip" class="pill icon" title="Switch camera">⇋</button>
     </div>
     <div id="state">
       <div class="statehead">What I know so far</div>
@@ -222,14 +227,30 @@ const DEBUG = new URLSearchParams(location.search).has("debug"); // ?debug shows
 let speaking = false;
 
 /* ---------- camera ---------- */
-async function startCamera() {
-  if (video.srcObject) return; // still running from the previous round
+let facing = localStorage.getItem("facing") || "environment"; // remembered between runs
+
+async function startCamera(force) {
+  if (video.srcObject && !force) return; // still running from the previous round
+  if (video.srcObject) for (const t of video.srcObject.getTracks()) t.stop();
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 960 } },
+    video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 960 } },
     audio: false,
   });
   video.srcObject = stream;
+  video.classList.toggle("mirrored", facing === "user");
   await video.play();
+}
+
+async function flipCamera() {
+  facing = facing === "environment" ? "user" : "environment";
+  localStorage.setItem("facing", facing);
+  try {
+    await startCamera(true);
+  } catch (err) {
+    facing = facing === "user" ? "environment" : "user"; // no such camera - go back
+    localStorage.setItem("facing", facing);
+    await startCamera(true);
+  }
 }
 
 function grabFrame() {
@@ -506,6 +527,7 @@ function tapped(text) {
   pending = "";
   turn(text);
 }
+$("flip").addEventListener("click", flipCamera);
 $("next").addEventListener("click", () => tapped("Next."));
 $("look").addEventListener("click", () => tapped("Does this look good?"));
 $("mic").addEventListener("click", () => {
