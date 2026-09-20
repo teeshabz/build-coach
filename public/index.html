@@ -34,6 +34,8 @@
       border-radius: 46px; border: 1px solid #23282f;
       box-shadow: 0 40px 90px rgba(0,0,0,.6), 0 0 0 9px #14171b;
     }
+    /* ?bare drops the bezel and corners so a screen grab crops to clean edges */
+    body.bare #app { border-radius: 0; border: none; box-shadow: none; }
   }
 
   #video {
@@ -233,6 +235,8 @@ let recog = null;
 let run = null; // one id per demo run, groups the recorded turns
 const OPENING = "What are you building today?";
 const DEBUG = new URLSearchParams(location.search).has("debug"); // ?debug shows timings
+// ?bare = square edges, no bezel, for recording a clean vertical crop
+if (new URLSearchParams(location.search).has("bare")) document.body.classList.add("bare");
 let speaking = false;
 
 /* ---------- camera ---------- */
