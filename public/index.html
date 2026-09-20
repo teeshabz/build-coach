@@ -270,6 +270,15 @@ let chosenVoice = null;
 function pickVoice() {
   const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en"));
   if (!voices.length) return null;
+  // ?voice=Ava picks one by name; ?voices lists what this device actually has
+  const want = new URLSearchParams(location.search).get("voice");
+  if (want) {
+    const named = voices.find((v) => v.name.toLowerCase().includes(want.toLowerCase()));
+    if (named) { console.log("voice (forced):", named.name); return named; }
+  }
+  if (new URLSearchParams(location.search).has("voices")) {
+    $("speech").textContent = voices.map((v) => v.name).join(" · ");
+  }
   const rank = (v) => {
     const n = v.name;
     if (/premium|siri/i.test(n)) return 0;
@@ -280,6 +289,7 @@ function pickVoice() {
   };
   const best = voices.sort((a, b) => rank(a) - rank(b))[0];
   console.log("voice:", best.name, "of", voices.length, "available");
+  if (DEBUG) $("hint").textContent = "voice: " + best.name;
   return best;
 }
 if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => { chosenVoice = null; };
