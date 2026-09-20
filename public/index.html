@@ -100,16 +100,15 @@
   @keyframes liftin { from { opacity: 0; transform: translateY(5px) } to { opacity: 1 } }
 
   /* ---- speech ---- */
-  .spacer { flex: 1; }
-  .spacer.low { flex: .72; }  /* leaves the speech sitting around eye level, not pinned to the floor */
+  .spacer { flex: 1; }  /* everything lives top and bottom - the middle stays clear for you */
   #heard {
     font-size: 16px; color: #fff; font-weight: 550; margin-bottom: 12px; min-height: 22px;
     text-shadow: 0 2px 18px rgba(0,0,0,.85);
   }
   #speech {
-    font-size: clamp(23px, 5.6vw, 31px); line-height: 1.24; font-weight: 650; letter-spacing: -.022em;
+    font-size: clamp(22px, 5.3vw, 29px); line-height: 1.24; font-weight: 650; letter-spacing: -.022em;
     color: var(--say);
-    text-shadow: 0 2px 26px rgba(0,0,0,.9); margin-bottom: 20px; min-height: 76px;
+    text-shadow: 0 2px 26px rgba(0,0,0,.9); margin-bottom: 12px; min-height: 66px;
     animation: liftin .35s ease-out;
   }
   #speech.correction { color: var(--alert); }
@@ -123,10 +122,11 @@
   @keyframes alert { 0% { opacity: 0 } 18% { opacity: 1 } 100% { opacity: 0 } }
 
   /* ---- controls ---- */
-  .controls { display: flex; gap: 10px; align-items: center; }
-  /* while the mic is live the buttons are clutter; paused or mic-less, they are
-     the only way to drive it, so they come back on their own */
-  .controls #mic { flex: 1; font-size: 17px; padding: 17px; }
+  .controls { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+  .controls #mic {
+    font-size: 13px; font-weight: 600; padding: 9px 15px; border-radius: 999px;
+    background: rgba(11,13,16,.7);
+  }
   button {
     font: inherit; color: var(--fg); background: rgba(26,31,38,.82); border: 1px solid rgba(255,255,255,.1);
     border-radius: 17px; padding: 15px 16px; font-weight: 650; backdrop-filter: blur(14px);
@@ -135,7 +135,7 @@
   button:active { transform: scale(.96); }
   .controls button { white-space: nowrap; }
   #mic.on { border-color: rgba(56,211,159,.55); color: var(--green); background: rgba(56,211,159,.1); }
-  .hint { font-size: 11px; color: rgba(255,255,255,.38); text-align: center; margin-top: 10px; min-height: 14px; }
+  .hint { font-size: 11px; color: rgba(255,255,255,.38); text-align: right; margin-top: 7px; min-height: 13px; }
 
   /* ---- start screen ---- */
   #start {
@@ -192,7 +192,6 @@
   <div id="heard"></div>
   <div id="speech"></div>
 
-  <div class="spacer low"></div>
 
   <div class="controls">
     <button id="mic">🎤 Listen</button>
